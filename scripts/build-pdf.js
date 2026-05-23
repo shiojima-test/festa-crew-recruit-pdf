@@ -11,12 +11,39 @@
  */
 
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const FONT_DIR = path.join(ROOT, 'node_modules', '@fontsource', 'm-plus-rounded-1c', 'files');
 const DEFAULT_PAGES_URL = 'https://shiojima-test.github.io/festa-crew-recruit-pdf/';
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8', '.json': 'application/json',
+  '.woff2': 'font/woff2', '.woff': 'font/woff',
+  '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.pdf': 'application/pdf',
+};
+
+function startInlineServer(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      let p = decodeURIComponent(req.url.split('?')[0]);
+      if (p === '/' || p === '') p = '/index.html';
+      const full = path.join(ROOT, p);
+      if (!full.startsWith(ROOT)) { res.statusCode = 403; res.end('forbidden'); return; }
+      fs.readFile(full, (err, data) => {
+        if (err) { res.statusCode = 404; res.end('not found'); return; }
+        res.setHeader('Content-Type', MIME[path.extname(full).toLowerCase()] || 'application/octet-stream');
+        res.end(data);
+      });
+    });
+    server.listen(port, '127.0.0.1', () => resolve(server));
+  });
+}
 
 function readPkgVersion() {
   return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -40,19 +67,28 @@ function buildFontFaceCss() {
   const fontCss = buildFontFaceCss();
   console.log(`[build-pdf] embedding ${fontCss.length} bytes of font CSS (data: URIs)`);
 
+  // インラインHTTPサーバを起動 (file:// だと fetch/CORS が不安定なので)
+  const PORT = parseInt(process.env.PORT || '4173', 10);
+  const server = await startInlineServer(PORT);
+  console.log(`[build-pdf] inline server on http://127.0.0.1:${PORT}/`);
+
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 794, height: 971 },  // 210mm × 257mm @ 96dpi (just for layout hints)
+    viewport: { width: 794, height: 971 },  // 210mm × 257mm @ 96dpi
   });
   const page = await context.newPage();
 
   let url;
-  if (isLocal) {
-    // 同梱 sample.csv で描画パイプライン全体を検証する (localhost 経由で fetch 可能)
+  if (process.env.PAGES_URL) {
+    // 本番Pages URL でレンダリング (任意指定。通常はインラインサーバを使う)
+    url = process.env.PAGES_URL;
+  } else if (isLocal) {
+    // 開発: 同梱 sample.csv で描画パイプライン全体を検証 (本番CSVがまだ整わない時用)
     const csvOverride = process.env.CSV_URL || 'data/sample.csv';
-    url = 'http://localhost:4173/?csv=' + encodeURIComponent(csvOverride);
+    url = `http://127.0.0.1:${PORT}/?csv=${encodeURIComponent(csvOverride)}`;
   } else {
-    url = process.env.PAGES_URL || DEFAULT_PAGES_URL;
+    // CI: localhost に index.html を配信し、render.js が本番CSV(pub?output=csv)を取得
+    url = `http://127.0.0.1:${PORT}/`;
   }
   console.log(`[build-pdf] opening: ${url}`);
 
@@ -110,6 +146,7 @@ function buildFontFaceCss() {
   console.log(`[build-pdf] PDF generated: ${outPath} (${kb} KB)`);
 
   await browser.close();
+  await new Promise(r => server.close(r));
 })().catch(e => {
   console.error(e);
   process.exit(1);

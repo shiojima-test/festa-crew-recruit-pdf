@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif; margin: 0; padding: 18px; font-size: 13px; color: #222; }
+  h2 { margin: 0 0 12px; font-size: 16px; color: #1a3a5c; }
+  .row { margin-bottom: 14px; }
+  label { display: block; font-size: 11px; color: #666; font-weight: 700; margin-bottom: 4px; letter-spacing: .05em; }
+  input[type=text] { width: 120px; padding: 6px 10px; font-size: 14px; border: 1.5px solid #ccc; border-radius: 5px; font-family: inherit; }
+  .meta { color: #888; font-size: 11px; margin-left: 8px; }
+  button { font-family: inherit; cursor: pointer; padding: 9px 18px; font-size: 13px; font-weight: 800; border: none; border-radius: 5px; }
+  .btn-primary { background: #3AABA8; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #2f9794; }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-link { background: #1a3a5c; color: #fff; text-decoration: none; display: inline-block; padding: 9px 16px; border-radius: 5px; font-weight: 700; margin-right: 6px; }
+  .btn-link:hover { background: #2a4d7a; }
+  .status { margin-top: 14px; padding: 10px 12px; background: #f4f4f0; border-radius: 5px; font-size: 12px; min-height: 38px; line-height: 1.5; }
+  .status.ok { background: #e8f6f5; color: #1f6f6c; }
+  .status.err { background: #fbe9e7; color: #b71c1c; }
+  .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid #3AABA8; border-top-color: transparent; border-radius: 50%; animation: spin 0.9s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .urls { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h2>フェスタクルー募集 PDF を生成</h2>
+
+<div class="row">
+  <label>次に発行するバージョン</label>
+  <input type="text" id="version" />
+  <span class="meta" id="current-info"></span>
+</div>
+
+<div class="row">
+  <button class="btn-primary" id="btn-generate" onclick="onGenerate()">この内容で生成する</button>
+</div>
+
+<div class="status" id="status">準備中…</div>
+
+<script>
+  let pollTimer = null;
+  let dispatchedAt = null;
+  let runId = null;
+  let usedVersion = null;
+
+  function setStatus(text, cls) {
+    const s = document.getElementById('status');
+    s.className = 'status' + (cls ? ' ' + cls : '');
+    s.innerHTML = text;
+  }
+
+  function init() {
+    setStatus('バージョン情報を取得中…');
+    google.script.run
+      .withSuccessHandler(({ current, next }) => {
+        document.getElementById('version').value = next;
+        document.getElementById('current-info').textContent = '(現行: ' + current + ')';
+        setStatus('準備完了。「この内容で生成する」を押すと GitHub Actions が起動します。');
+      })
+      .withFailureHandler(e => setStatus('エラー: ' + e.message, 'err'))
+      .getProposedVersion();
+  }
+
+  function onGenerate() {
+    const v = document.getElementById('version').value.trim();
+    if (!/^v\d+(\.\d+)?$/.test(v)) {
+      setStatus('バージョン形式が不正です。例: v7.2', 'err');
+      return;
+    }
+    usedVersion = v;
+    document.getElementById('btn-generate').disabled = true;
+    setStatus('<span class="spinner"></span> workflow_dispatch を送信中…');
+    google.script.run
+      .withSuccessHandler((res) => {
+        dispatchedAt = res.dispatchedAt;
+        setStatus('<span class="spinner"></span> Actions の起動を待機中…');
+        setTimeout(findRun, 2500);
+      })
+      .withFailureHandler(e => {
+        setStatus('起動失敗: ' + e.message, 'err');
+        document.getElementById('btn-generate').disabled = false;
+      })
+      .startWorkflow(v);
+  }
+
+  function findRun() {
+    google.script.run
+      .withSuccessHandler((run) => {
+        if (!run) { setTimeout(findRun, 2500); return; }
+        runId = run.id;
+        setStatus('<span class="spinner"></span> 実行中… (run #' + runId + ', status=' + run.status + ')');
+        pollTimer = setTimeout(pollRun, 6000);
+      })
+      .withFailureHandler(e => setStatus('run取得失敗: ' + e.message, 'err'))
+      .findRecentRun(dispatchedAt);
+  }
+
+  function pollRun() {
+    google.script.run
+      .withSuccessHandler((run) => {
+        if (run.status !== 'completed') {
+          setStatus('<span class="spinner"></span> 実行中… (status=' + run.status + ')');
+          pollTimer = setTimeout(pollRun, 8000);
+          return;
+        }
+        if (run.conclusion === 'success') {
+          google.script.run
+            .withSuccessHandler(() => {})
+            .commitVersion(usedVersion);
+          const fs = usedVersion.replace(/\./g, '_');
+          const pages = 'https://shiojima-test.github.io/festa-crew-recruit-pdf/dist/festa_crew_recruit_' + fs + '.pdf';
+          const release = 'https://github.com/shiojima-test/festa-crew-recruit-pdf/releases/tag/' + usedVersion;
+          setStatus(
+            '<b>完了しました</b> (run #' + run.id + ')<br>' +
+            '<div class="urls">' +
+            '<a class="btn-link" href="' + pages + '" target="_blank" rel="noopener">PDFを開く (Pages)</a>' +
+            '<a class="btn-link" href="' + release + '" target="_blank" rel="noopener">Releaseページ</a>' +
+            '</div>' +
+            '<div style="color:#888;margin-top:6px;font-size:11px;">※ Pagesの反映には Actions 完了後さらに 1〜3分かかる場合があります。</div>',
+            'ok'
+          );
+        } else {
+          setStatus('失敗しました: conclusion=' + run.conclusion + ' / <a href="' + run.html_url + '" target="_blank">ログを開く</a>', 'err');
+        }
+        document.getElementById('btn-generate').disabled = false;
+      })
+      .withFailureHandler(e => setStatus('ポーリング失敗: ' + e.message, 'err'))
+      .getRunStatus(runId);
+  }
+
+  init();
+</script>
+
+</body>
+</html>

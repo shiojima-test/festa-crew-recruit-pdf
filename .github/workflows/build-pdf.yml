@@ -1,0 +1,106 @@
+name: Build Festa Crew Recruit PDF
+
+# - workflow_dispatch: GAS から VERSION を指定して起動。
+# - push (data 系の手動更新時): 自動で再生成 (任意)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "PDFバージョン (例: v7.1, v7.2). 省略時は package.json の version を使う。"
+        required: false
+        default: ""
+      do_release:
+        description: "GitHub Release も作成する場合は true"
+        required: false
+        default: "true"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-pdf
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm deps
+        run: npm install
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve VERSION
+        id: ver
+        run: |
+          INPUT="${{ inputs.version }}"
+          if [ -z "$INPUT" ]; then
+            INPUT="v$(node -p "require('./package.json').version")"
+          fi
+          echo "version=$INPUT" >> "$GITHUB_OUTPUT"
+          # ファイル名用: ドットをアンスコに置換
+          FS=$(echo "$INPUT" | tr '.' '_')
+          echo "version_fs=$FS" >> "$GITHUB_OUTPUT"
+          echo "Resolved VERSION=$INPUT (file suffix: $FS)"
+
+      - name: Generate PDF
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: node scripts/build-pdf.js
+
+      - name: Verify PDF artifact
+        run: |
+          FILE="dist/festa_crew_recruit_${{ steps.ver.outputs.version_fs }}.pdf"
+          test -f "$FILE" || { echo "PDF not found: $FILE"; exit 1; }
+          SIZE=$(stat -c%s "$FILE")
+          echo "Generated $FILE ($SIZE bytes)"
+          [ "$SIZE" -gt 50000 ] || { echo "PDF suspiciously small"; exit 1; }
+
+      - name: Commit dist/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "build: regenerate PDF ${{ steps.ver.outputs.version }} [skip ci]"
+            git push
+          fi
+
+      - name: Create / update GitHub Release
+        if: ${{ inputs.do_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ver.outputs.version }}"
+          FILE="dist/festa_crew_recruit_${{ steps.ver.outputs.version_fs }}.pdf"
+          # 既存タグがあれば資産を差し替え、なければ新規作成
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$FILE" --clobber
+            echo "Updated release: $TAG"
+          else
+            gh release create "$TAG" "$FILE" \
+              --title "Festa Crew Recruit $TAG" \
+              --notes "自動生成: $FILE (built from main @ ${GITHUB_SHA})"
+            echo "Created release: $TAG"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- VERSION: \`${{ steps.ver.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PDF (Pages): https://shiojima-test.github.io/festa-crew-recruit-pdf/dist/festa_crew_recruit_${{ steps.ver.outputs.version_fs }}.pdf" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.do_release }}" = "true" ]; then
+            echo "- Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
