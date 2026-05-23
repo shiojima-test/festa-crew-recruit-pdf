@@ -1,0 +1,15 @@
+{
+  "name": "festa-crew-recruit-pdf",
+  "version": "7.1.0",
+  "private": true,
+  "description": "フェスタクルー募集チラシ (CSV → HTML → Playwright PDF)",
+  "scripts": {
+    "build": "node scripts/build-pdf.js",
+    "build:local": "node scripts/build-pdf.js --local",
+    "serve": "node scripts/serve.js"
+  },
+  "dependencies": {
+    "@fontsource/m-plus-rounded-1c": "^5.2.5",
+    "playwright": "^1.49.0"
+  }
+}
