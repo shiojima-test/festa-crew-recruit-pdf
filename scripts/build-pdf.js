@@ -16,7 +16,8 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
-const FONT_DIR = path.join(ROOT, 'node_modules', '@fontsource', 'm-plus-rounded-1c', 'files');
+const FONT_DIR_MPLUS = path.join(ROOT, 'node_modules', '@fontsource', 'm-plus-rounded-1c', 'files');
+const FONT_DIR_NOTO  = path.join(ROOT, 'node_modules', '@fontsource', 'noto-sans-jp', 'files');
 const DEFAULT_PAGES_URL = 'https://shiojima-test.github.io/festa-crew-recruit-pdf/';
 
 const MIME = {
@@ -50,12 +51,22 @@ function readPkgVersion() {
 }
 
 function buildFontFaceCss() {
+  // M PLUS Rounded 1c (上半分: タイトル等) と Noto Sans JP (下半分: カード) を data:URI で埋込
   const weights = [400, 500, 700, 800, 900];
-  return weights.map(w => {
-    const file = path.join(FONT_DIR, `m-plus-rounded-1c-japanese-${w}-normal.woff2`);
-    const b64 = fs.readFileSync(file).toString('base64');
-    return `@font-face{font-family:"M PLUS Rounded 1c";font-style:normal;font-weight:${w};font-display:block;src:url(data:font/woff2;base64,${b64}) format("woff2");}`;
-  }).join('\n');
+  const out = [];
+  for (const w of weights) {
+    const mpFile = path.join(FONT_DIR_MPLUS, `m-plus-rounded-1c-japanese-${w}-normal.woff2`);
+    if (fs.existsSync(mpFile)) {
+      const b64 = fs.readFileSync(mpFile).toString('base64');
+      out.push(`@font-face{font-family:"M PLUS Rounded 1c";font-style:normal;font-weight:${w};font-display:block;src:url(data:font/woff2;base64,${b64}) format("woff2");}`);
+    }
+    const ntFile = path.join(FONT_DIR_NOTO, `noto-sans-jp-japanese-${w}-normal.woff2`);
+    if (fs.existsSync(ntFile)) {
+      const b64 = fs.readFileSync(ntFile).toString('base64');
+      out.push(`@font-face{font-family:"Noto Sans JP";font-style:normal;font-weight:${w};font-display:block;src:url(data:font/woff2;base64,${b64}) format("woff2");}`);
+    }
+  }
+  return out.join('\n');
 }
 
 (async () => {

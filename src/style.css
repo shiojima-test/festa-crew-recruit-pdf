@@ -17,7 +17,8 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     height: 94mm;
-    background: linear-gradient(135deg, #f8fbfc 0%, #eef5f6 50%, #f4f9fa 100%);
+    /* v7.2: 白すぎるグラデーション → ティール寄りに濃くして「白い隙間」を解消 */
+    background: linear-gradient(135deg, #cee5e3 0%, #b9dad7 50%, #c9e2e0 100%);
     position: relative;
     overflow: hidden;
   }
@@ -289,9 +290,11 @@
   }
 
   /* === カードセクション === */
+  /* v7.2: 下半分カードは Noto Sans JP に切替 (上半分は M PLUS Rounded 1c のまま) */
   .cards-section {
     padding: 2mm 8mm 0;
     background: #fdfdfb;
+    font-family: "Noto Sans JP", "Meiryo", "メイリオ", sans-serif;
   }
   .cards-title-row {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -406,10 +409,19 @@
   }
   .card .c-qr {
     width: 10mm; height: 10mm;
+    /* v7.2: <img> でも <div> でも 10mm×10mm 枠で描画。
+       img の場合は data URI の QR がここに収まる。
+       div の場合は (qrUrl 空時に発生しないが念のため) 市松プレースホルダにフォールバック。 */
     background:
       repeating-linear-gradient(0deg, #1f2a30 0 0.6px, transparent 0.6px 1.7px),
       repeating-linear-gradient(90deg, #1f2a30 0 0.6px, transparent 0.6px 1.7px);
     background-color: #fff;
+    object-fit: contain;
+    display: block;
+  }
+  /* img.c-qr の場合は背景パターンを消す (QR画像が見えるように) */
+  img.card-img-c-qr, img.c-qr {
+    background: #fff !important;
   }
   .card .c-qr-text {
     font-size: 5.5px;

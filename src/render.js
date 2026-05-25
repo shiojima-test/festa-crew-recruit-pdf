@@ -79,12 +79,30 @@
     if (opts.html != null) e.innerHTML = opts.html;
     if (opts.id) e.id = opts.id;
     if (opts.style) for (const k in opts.style) e.style[k] = opts.style[k];
+    if (opts.attrs) for (const k in opts.attrs) e.setAttribute(k, opts.attrs[k]);
     for (let i = 0; i < children.length; i++) if (children[i]) e.appendChild(children[i]);
     return e;
   }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  // v7.2: qrcode-generator で同期的に QR の data URI を作る
+  // typeNumber=0 (自動)、errorCorrectionLevel='M'。
+  // QRCode-generator は引数 (cellSize, margin) で PNG data URI を返す。
+  function generateQrDataUri(text) {
+    try {
+      // global qrcode は vendor/qrcode.js (qrcode-generator) が公開
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      // cellSize=4, margin=2 → 約 100-130px の PNG data URI を生成
+      return qr.createDataURL(4, 2);
+    } catch (e) {
+      console.warn('[render] QR generation failed for url=' + text + ':', e);
+      return '';
+    }
   }
 
   function warnIfTooLong(value, field, id) {
@@ -124,7 +142,8 @@
 
     const body = el('div', { className: 'c-body' });
 
-    body.appendChild(el('div', { className: 'c-loc-row' }, [
+    // c-loc-row: LOCATION + (qrUrl があれば) QR コード
+    const locRowChildren = [
       el('div', { className: 'c-loc-left' }, [
         el('div', { className: 'c-section', text: '▎ LOCATION' }),
         el('div', {
@@ -133,11 +152,20 @@
                 '<span class="c-addr">' + escapeHtml(row.address || '') + '</span>',
         }),
       ]),
-      el('div', { className: 'c-qr-box' }, [
-        el('div', { className: 'c-qr' }),  // QR は CSS の市松模様プレースホルダ
-        el('span', { className: 'c-qr-text', text: '詳細はこちら' }),
-      ]),
-    ]));
+    ];
+    // v7.2: qrUrl 列があれば QR コードを生成 (qrcode-generator で synchronous data URI)
+    // qrUrl が空なら c-qr-box ごと出さない → c-loc-left が幅いっぱい使う
+    const qrUrl = (row.qrUrl || '').trim();
+    if (qrUrl) {
+      const qrDataUri = generateQrDataUri(qrUrl);
+      locRowChildren.push(
+        el('div', { className: 'c-qr-box' }, [
+          el('img', { className: 'c-qr', attrs: { src: qrDataUri, alt: 'QR' } }),
+          el('span', { className: 'c-qr-text', text: '詳細はこちら' }),
+        ])
+      );
+    }
+    body.appendChild(el('div', { className: 'c-loc-row' }, locRowChildren));
 
     body.appendChild(el('div', { className: 'c-section', text: '▎ SCHEDULE' }));
     const sched = el('div', { className: 'c-schedC' });
