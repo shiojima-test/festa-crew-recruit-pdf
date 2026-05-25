@@ -589,11 +589,8 @@
   .hl-ai { font-size:7.3px; color:#1f2a30; display:flex; gap:1mm; align-items:flex-start; line-height:1.3; margin-bottom:0.7mm; }
   .hl-d { width:1.4mm; height:1.4mm; border-radius:50%; background:#1a3a5c; flex-shrink:0; margin-top:0.5mm; }
   .hl-ai b { color:#1a3a5c; }
-  .hl-right { width:30mm; background:linear-gradient(160deg,#e2e6e8,#cfd5d8); padding:2.5mm; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.3mm; }
-  .hl-lbl { font-size:9px; font-weight:900; color:#1f2a30; text-align:center; }
-  .hl-qr { width:15mm; height:15mm; background:#fff; padding:0.8mm; }
-  .hl-qr-inner { width:100%; height:100%; background:repeating-linear-gradient(0deg,#1f2a30 0 1px,transparent 1px 2.5px),repeating-linear-gradient(90deg,#1f2a30 0 1px,transparent 1px 2.5px); background-color:#fff; }
-  .hl-ds { font-size:6.3px; color:#3a4448; line-height:1.3; text-align:center; }
+  .hl-right { width:30mm; padding:2mm 2mm 2mm 0; display:flex; align-items:stretch; }
+  .hl-photo { width:100%; height:100%; object-fit:cover; border-radius:1.5mm; display:block; }
 
   /* フッター */
   .footer {
