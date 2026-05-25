@@ -593,11 +593,9 @@
   .footer {
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    width: 100%;
     background: #1f2a30;
     color: #9aa5ac;
     padding: 1.5mm 10mm;
-    box-shadow: 0 0 0 2mm #1f2a30;
     display: flex; justify-content: space-between; align-items: center;
     font-size: 6.5px; letter-spacing: 0.05em;
   }

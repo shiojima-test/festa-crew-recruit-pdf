@@ -112,8 +112,14 @@ function buildFontFaceCss() {
   //   - .page の margin/box-shadow は画面表示用で、PDFでは余白として出てしまうので0に
   //   - body 背景は灰なので白に固定 (.page の外側が PDF に映らないように)
   //   - 画面用 download ボタン非表示
+  // html/body 背景はフッター色 #1f2a30 に固定する。
+  // 理由: Playwright/Chromium が出力する PDF ページは指定 257mm より約 0.21mm
+  // 大きく (Skia/PDF の rounding)、.page (CSS 257mm) は PDF ページ下端まで届かない。
+  // 背後 (html/body) を footer と同色にしておけば、その 2-3px のサブピクセル
+  // ギャップが見えず、フッター帯が下端までぴったり繋がる。サイドの 1px ギャップも
+  // 同様に同色で消える (元は body bg #fff 由来で白く透けていた)。
   await page.addStyleTag({ content: `
-    html, body { background: #fff !important; }
+    html, body { background: #1f2a30 !important; }
     .page { margin: 0 !important; box-shadow: none !important; }
     .screen-only-bar { display: none !important; }
   `});
