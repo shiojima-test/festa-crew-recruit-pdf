@@ -305,9 +305,6 @@
     font-size: 12px; font-weight: 900; color: #1f2a30; letter-spacing: 0.02em;
   }
   .cards-title .accent { color: #E88A0A; margin-right: 2mm; }
-  .cards-meta {
-    font-size: 7px; color: #5a6770; letter-spacing: 0.08em;
-  }
 
   /* 4列×2段: 7枚なので右下1マスは空き */
   .cards-grid {
@@ -596,9 +593,11 @@
   .footer {
     position: absolute;
     bottom: 0; left: 0; right: 0;
+    width: 100%;
     background: #1f2a30;
     color: #9aa5ac;
     padding: 1.5mm 10mm;
+    box-shadow: 0 0 0 2mm #1f2a30;
     display: flex; justify-content: space-between; align-items: center;
     font-size: 6.5px; letter-spacing: 0.05em;
   }
