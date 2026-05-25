@@ -105,6 +105,12 @@
     }
   }
 
+  // publish 列が "OK" (前後トリム後の完全一致) の行だけを公開扱いする。
+  // "ok"・"○"・空欄・"NG" などは全て非公開。カード／地図ピンの両方から除外。
+  function isPublished(row) {
+    return (row.publish == null ? '' : String(row.publish).trim()) === 'OK';
+  }
+
   function warnIfTooLong(value, field, id) {
     const limit = LIMITS[field];
     if (limit != null && value && value.length > limit) {
@@ -262,16 +268,19 @@
     }
 
     const rows = rowsToObjects(parseCSV(text));
-    console.log('[render] loaded ' + rows.length + ' rows from CSV');
+    const visible = rows.filter(isPublished);
+    console.log('[render] loaded ' + rows.length + ' rows from CSV, ' + visible.length + ' published (publish="OK")');
 
     const grid = document.getElementById('cards-grid');
     while (grid.firstChild) grid.removeChild(grid.firstChild);
-    rows.forEach(r => grid.appendChild(buildCard(r)));
+    visible.forEach(r => grid.appendChild(buildCard(r)));
 
-    renderPins(rows);
+    renderPins(visible);
 
     // Playwright が待機できるよう、描画完了を data 属性で告知
+    // 全フィルタアウト(visible=0)時でも init() が完走したことを示せるよう、CSVの総行数を使う
     document.body.dataset.rendered = String(rows.length);
+    document.body.dataset.visible = String(visible.length);
   }
 
   // pin geometry は load 後 (フォント・SVGレイアウトが確定したあと) に走らせる
