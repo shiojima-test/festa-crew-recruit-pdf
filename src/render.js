@@ -175,15 +175,27 @@
 
     body.appendChild(el('div', { className: 'c-section', text: '▎ SCHEDULE' }));
     const sched = el('div', { className: 'c-schedC' });
-    for (let i = 1; i <= 3; i++) {
-      const lbl = row['sch' + i + 'Label'];
-      const val = row['sch' + i + 'Date'];
+    // sch1〜sch4 を収集 (値のある項目だけ描画)
+    const schedItems = [];
+    for (let i = 1; i <= 4; i++) {
+      const lbl = (row['sch' + i + 'Label'] || '').trim();
+      const val = (row['sch' + i + 'Date'] || '').trim();
       if (!lbl && !val) continue;
-      sched.appendChild(el('div', { className: 'c-itemC c' + i }, [
-        el('span', { className: 'c-cLbl', text: lbl || '' }),
-        el('span', { className: 'c-cVal', text: val || '' }),
-      ]));
+      schedItems.push({ lbl, val });
     }
+    // ラベル「説明会」を先頭へ (安定ソート: 残りは元の順序を維持)
+    // → 表示順 = 説明会 → 応募締切 → 書類審査 → 事前研修 (Web版v1.9と同一)
+    const ordered = schedItems.filter(it => it.lbl === '説明会')
+      .concat(schedItems.filter(it => it.lbl !== '説明会'));
+    // 枠数に応じた列数クラス (cols-3 / cols-4)。3枠時は従来CSSが効く
+    sched.classList.add('cols-' + ordered.length);
+    // 枠色は最終的な表示位置 (1始まり) に紐づく → c1=teal / c2=orange / c3=blue / c4=navy
+    ordered.forEach(function (it, idx) {
+      sched.appendChild(el('div', { className: 'c-itemC c' + (idx + 1) }, [
+        el('span', { className: 'c-cLbl', text: it.lbl }),
+        el('span', { className: 'c-cVal', text: it.val }),
+      ]));
+    });
     body.appendChild(sched);
 
     body.appendChild(el('div', { className: 'c-section', text: '▎ 募集領域' }));
