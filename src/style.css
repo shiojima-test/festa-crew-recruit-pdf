@@ -472,6 +472,7 @@
   }
   .card .c-itemC.c2 { border-top-color: #E88A0A; }
   .card .c-itemC.c3 { border-top-color: #2E8EC4; }
+  .card .c-itemC.c4 { border-top-color: #2c4a6e; }
   .card .c-cLbl {
     font-size: 4.8px; color: #888; font-weight: bold;
     display: block; margin-bottom: 0.1mm; white-space: nowrap;
@@ -481,6 +482,15 @@
     font-size: 9px; font-weight: 900; color: #1f2a30;
     line-height: 1;
   }
+
+  /* 4枠時のみ適用 (3枠=cols-3 は上記デフォルトのまま＝従来の見た目を維持) */
+  .card .c-schedC.cols-4 {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.7mm;
+  }
+  .card .c-schedC.cols-4 .c-itemC { padding: 0.7mm 0.2mm; }
+  .card .c-schedC.cols-4 .c-cLbl { font-size: 4.2px; }
+  .card .c-schedC.cols-4 .c-cVal { font-size: 7.5px; }
 
   .card .c-tag-group {
     display: flex;
